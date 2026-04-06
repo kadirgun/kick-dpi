@@ -1,5 +1,6 @@
 {
   "name": "kick-dpi",
+  "description": "A desktop application that prevents internet service providers from performing Deep Packet Inspection (DPI)",
   "version": "0.1.0",
   "private": true,
   "scripts": {

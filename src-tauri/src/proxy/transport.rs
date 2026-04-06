@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
-use tokio::net::lookup_host;
+use crate::dns;
 
 use super::socks5::{Socks5Address, Socks5ReplyCode};
 use super::ProxyError;
@@ -10,17 +10,12 @@ pub(super) async fn resolve_target(address: &Socks5Address) -> Result<SocketAddr
     match address {
         Socks5Address::Ip(target) => Ok(*target),
         Socks5Address::Domain(host, port) => {
-            let mut resolved = lookup_host((host.as_str(), *port))
+            dns::resolve_target(host, *port)
                 .await
                 .map_err(|source| ProxyError::ResolveFailed {
                     host: host.clone(),
                     source,
-                })?;
-
-            resolved.next().ok_or_else(|| ProxyError::ResolveFailed {
-                host: host.clone(),
-                source: io::Error::new(io::ErrorKind::NotFound, "no DNS results"),
-            })
+                })
         }
     }
 }

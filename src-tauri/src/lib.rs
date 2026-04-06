@@ -1,4 +1,5 @@
 pub(crate) mod bypass;
+pub(crate) mod dns;
 mod proxy;
 
 use tauri::Manager;

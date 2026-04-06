@@ -1,23 +1,13 @@
-mod tcp_fragmentation;
-mod tcp_inter_chunk_delay;
-mod tcp_rst_blocking;
-mod tcp_sni_splitting;
-mod tcp_window_size;
+mod fake_packet;
+mod passthrough;
+mod sni_split;
+mod tcp_fragment;
+mod timing_delay;
+mod ttl_modification;
 
-pub use tcp_fragmentation::TcpFragmentationStrategy;
-pub use tcp_inter_chunk_delay::TcpInterChunkDelayStrategy;
-pub use tcp_rst_blocking::TcpRstBlockingStrategy;
-pub use tcp_sni_splitting::TcpSniSplittingStrategy;
-pub use tcp_window_size::TcpWindowSizeStrategy;
-
-use super::strategy::BypassStrategy;
-
-pub fn default_strategies() -> Vec<Box<dyn BypassStrategy>> {
-    vec![
-        Box::new(TcpWindowSizeStrategy::default()),
-        Box::new(TcpSniSplittingStrategy::default()),
-        Box::new(TcpFragmentationStrategy::default()),
-        Box::new(TcpRstBlockingStrategy::default()),
-        Box::new(TcpInterChunkDelayStrategy::default()),
-    ]
-}
+pub use fake_packet::FakePacketStrategy;
+pub use passthrough::PassthroughStrategy;
+pub use sni_split::SniSplitStrategy;
+pub use tcp_fragment::TcpFragmentStrategy;
+pub use timing_delay::TimingDelayStrategy;
+pub use ttl_modification::TtlModificationStrategy;

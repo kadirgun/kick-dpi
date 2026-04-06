@@ -1,40 +1,37 @@
-use super::context::BypassContext;
-use std::future::Future;
-use std::pin::Pin;
-use tokio::net::TcpStream;
+use super::packet::RawPacket;
 
-pub type BeforeSendFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-
-pub trait BypassStrategy: Send {
+/// A single bypass strategy. Takes ownership of a packet and returns zero or
+/// more packets that should be (re-)injected into the network stack.
+///
+/// Returning `vec![packet]` is a transparent no-op pass-through.
+/// Returning an empty vec drops the packet.
+/// Returning multiple packets injects each of them.
+pub trait Strategy: Send + Sync {
     fn name(&self) -> &'static str;
+    fn process(&self, packet: RawPacket) -> Vec<RawPacket>;
+}
 
-    fn before_send(&mut self, _context: &mut BypassContext, _data: &[u8]) -> BeforeSendFuture {
-        Box::pin(async {})
+/// Chains multiple strategies sequentially: the output packets of strategy N
+/// are fed individually into strategy N+1. Starts from a single captured packet
+/// and may produce 0..N packets to reinject.
+pub struct StrategyPipeline {
+    strategies: Vec<Box<dyn Strategy>>,
+}
+
+impl StrategyPipeline {
+    pub fn new(strategies: Vec<Box<dyn Strategy>>) -> Self {
+        Self { strategies }
     }
 
-    fn on_connect(
-        &mut self,
-        _context: &mut BypassContext,
-        _client: &TcpStream,
-        _upstream: &TcpStream,
-    ) {
+    /// Run the full pipeline on one captured packet.
+    pub fn run(&self, packet: RawPacket) -> Vec<RawPacket> {
+        let mut current = vec![packet];
+        for strategy in &self.strategies {
+            current = current
+                .into_iter()
+                .flat_map(|p| strategy.process(p))
+                .collect();
+        }
+        current
     }
-
-    fn on_tls_start(
-        &mut self,
-        _context: &mut BypassContext,
-        _client: &TcpStream,
-        _upstream: &TcpStream,
-    ) {
-    }
-
-    fn process_sni(&mut self, _context: &mut BypassContext, data: &[u8]) -> Vec<Vec<u8>> {
-        vec![data.to_vec()]
-    }
-
-    fn on_client_data(&mut self, _context: &mut BypassContext, data: &[u8]) -> Vec<Vec<u8>> {
-        vec![data.to_vec()]
-    }
-
-    fn on_server_data(&mut self, _context: &mut BypassContext, _data: &[u8]) {}
 }

@@ -1,8 +1,4 @@
 pub(crate) mod bypass;
-pub(crate) mod dns;
-mod proxy;
-
-use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -16,9 +12,11 @@ pub fn run() {
                 )?;
             }
 
-            let proxy_controller = proxy::ProxyController::start(proxy::default_bind_addr());
-            log::info!("Starting SOCKS5 proxy at {}", proxy_controller.bind_addr());
-            app.manage(proxy_controller);
+            #[cfg(windows)]
+            tauri::async_runtime::spawn(async move {
+                bypass::setup::ensure_windivert().await;
+                bypass::start_listener(bypass::default_pipeline());
+            });
 
             Ok(())
         })

@@ -262,7 +262,7 @@ where
         pipeline.before_send(context, chunk)
     };
 
-    log::info!(
+    log::debug!(
         "send_chunk: upstream write queued for {} bytes after {} before_send hooks",
         chunk.len(),
         before_send_futures.len()

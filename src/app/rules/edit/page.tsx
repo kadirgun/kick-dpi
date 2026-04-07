@@ -1,3 +1,5 @@
+import { Center, Loader } from "@mantine/core";
+import { Suspense } from "react";
 import { EditRulePage } from "./client";
 
 export const dynamicParams = true;
@@ -7,5 +9,15 @@ export async function generateStaticParams() {
 }
 
 export default function Page() {
-  return <EditRulePage />;
+  return (
+    <Suspense
+      fallback={
+        <Center>
+          <Loader />
+        </Center>
+      }
+    >
+      <EditRulePage />
+    </Suspense>
+  );
 }

@@ -2,7 +2,7 @@
 
 import { ActionIcon, AppShell, Button, createTheme, Group, MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
-import { IconHome, IconPower } from "@tabler/icons-react";
+import { IconHome, IconPower, IconSettings } from "@tabler/icons-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { exit } from "@tauri-apps/plugin-process";
 import Link from "next/link";
@@ -28,6 +28,15 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
                 <Button variant="default" component={Link} href={`/rules/create`}>
                   Create Rule
                 </Button>
+                <ActionIcon
+                  variant="default"
+                  size={36}
+                  component={Link}
+                  href={`/settings`}
+                  title="Application Settings"
+                >
+                  <IconSettings size={16} />
+                </ActionIcon>
               </Group>
 
               <Group align="center">

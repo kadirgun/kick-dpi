@@ -136,12 +136,30 @@ pub(super) fn run_listener(filter: &str) {
                 let mutated_packets = if let Some(sni) = extract_sni(bytes) {
                     info!("[sni] SNI Packet: {}", sni);
                     let packets = wrong_checksum.process(packet);
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| fake_sni.process(p)).collect();
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| overlap.process(p)).collect();
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| ip_frag.process(p)).collect();
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| sni_split.process(p)).collect();
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| tcp_fragment.process(p)).collect();
-                    let packets: Vec<_> = packets.into_iter().flat_map(|p| fake_packet.process(p)).collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| fake_sni.process(p))
+                        .collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| overlap.process(p))
+                        .collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| ip_frag.process(p))
+                        .collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| sni_split.process(p))
+                        .collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| tcp_fragment.process(p))
+                        .collect();
+                    let packets: Vec<_> = packets
+                        .into_iter()
+                        .flat_map(|p| fake_packet.process(p))
+                        .collect();
                     shuffle.process_batch(packets)
                 } else {
                     vec![packet]

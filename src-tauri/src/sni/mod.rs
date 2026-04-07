@@ -3,19 +3,13 @@ pub mod strategies;
 
 mod listener;
 
-const FILTER: &str = "tcp.DstPort == 443 and tcp.PayloadLength > 0";
+const FILTER: &str =
+    "(tcp.DstPort == 443 and tcp.PayloadLength > 0) or (udp.DstPort == 443 and outbound)";
 
-/// Open the WinDivert handle and spawn the blocking listener thread.
-///
-/// # Stack size
-/// WinDivert's initialisation (which triggers SCM / kernel driver calls) and
-/// its internal `recv`/helper subroutines heavily utilize the stack. The Windows
-/// default 1 MB stack size leads to `STATUS_STACK_OVERFLOW` (0xc00000fd). We
-/// must spawn a distinct thread configured with a much larger stack (32MB).
-pub fn start_listener() {
+pub fn start_listener(app_handle: tauri::AppHandle) {
     std::thread::Builder::new()
         .name("windivert-listener".into())
-        .spawn(move || listener::run_listener(FILTER))
+        .spawn(move || listener::run_listener(FILTER, app_handle))
         .expect("failed to spawn WinDivert listener thread");
 }
 

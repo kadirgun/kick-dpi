@@ -1,5 +1,6 @@
 use log::{error, info};
 use std::sync::Mutex;
+use tauri::Manager;
 use windivert::{prelude::WinDivertFlags, ShutdownHandle, WinDivert};
 
 use super::strategies::{
@@ -7,24 +8,36 @@ use super::strategies::{
     SniSplitStrategy, TcpFragmentStrategy, WrongChecksumStrategy,
 };
 
-fn extract_sni(bytes: &[u8]) -> Option<String> {
+fn tls_payload(bytes: &[u8]) -> Option<&[u8]> {
     if bytes.is_empty() || (bytes[0] >> 4) != 4 {
         return None;
     }
-
     let ip_header_len = ((bytes[0] & 0x0F) * 4) as usize;
     if bytes.len() <= ip_header_len + 20 {
-        return None; // not enough for TCP
-    }
-
-    let tcp_header_len = ((bytes[ip_header_len + 12] >> 4) * 4) as usize;
-    let payload_start = ip_header_len + tcp_header_len;
-
-    if bytes.len() < payload_start + 43 {
         return None;
     }
+    let tcp_header_len = ((bytes[ip_header_len + 12] >> 4) * 4) as usize;
+    let payload_start = ip_header_len + tcp_header_len;
+    if bytes.len() < payload_start + 6 {
+        return None;
+    }
+    Some(&bytes[payload_start..])
+}
 
-    let payload = &bytes[payload_start..];
+/// Returns true if the packet is a TLS ClientHello (regardless of SNI/ECH).
+fn is_client_hello(bytes: &[u8]) -> bool {
+    tls_payload(bytes)
+        .map(|payload| {
+            payload.len() >= 6
+                && payload[0] == 0x16  // TLS Handshake record
+                && payload[1] == 0x03  // TLS version major
+                && payload[5] == 0x01 // Handshake type: ClientHello
+        })
+        .unwrap_or(false)
+}
+
+fn extract_sni(bytes: &[u8]) -> Option<String> {
+    let payload = tls_payload(bytes)?;
 
     // Check TLS Record header (0x16 0x03)
     if payload[0] != 0x16 || payload[1] != 0x03 {
@@ -114,7 +127,7 @@ pub(super) fn stop_listener() {
 }
 
 /// Blocking recv/reinject loop.
-pub(super) fn run_listener(filter: &str) {
+pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
     let wrong_checksum = WrongChecksumStrategy::default();
     let fake_sni = FakeSniStrategy::default();
     let overlap = OverlapStrategy::default();
@@ -147,38 +160,93 @@ pub(super) fn run_listener(filter: &str) {
                 let packet = packet.into_owned();
                 let bytes = packet.data.as_ref();
 
-                let mutated_packets = if let Some(sni) = extract_sni(bytes) {
-                    info!("[sni] SNI Packet: {}", sni);
-                    let packets = wrong_checksum.process(packet);
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| fake_sni.process(p))
-                        .collect();
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| overlap.process(p))
-                        .collect();
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| ip_frag.process(p))
-                        .collect();
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| sni_split.process(p))
-                        .collect();
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| tcp_fragment.process(p))
-                        .collect();
-                    let packets: Vec<_> = packets
-                        .into_iter()
-                        .flat_map(|p| fake_packet.process(p))
-                        .collect();
-                    shuffle.process_batch(packets)
+                if should_drop_udp_443(bytes, &app_handle) {
+                    info!("[sni] dropping UDP 443 packet for matching rule");
+                    continue;
+                }
+
+                let mutated_packets = if is_client_hello(bytes) {
+                    use crate::{packet_key::ConnectionKey, state::AppState};
+
+                    let state = app_handle.state::<AppState>();
+                    let sni = extract_sni(bytes);
+
+                    let packet_path = ConnectionKey::from_raw(bytes).and_then(|key| {
+                        let pid = state.pid_for_connection_or_local_port(&key)?;
+                        state.path_for_pid(pid)
+                    });
+
+                    let should_apply = state
+                        .settings_snapshot()
+                        .sni_enabled_for(sni.as_deref().unwrap_or(""), packet_path.as_deref());
+
+                    if !should_apply {
+                        info!(
+                            "[sni] no rule matched: sni={:?} path={:?}",
+                            sni, packet_path
+                        );
+                        vec![packet]
+                    } else {
+                        info!(
+                            "[sni] ClientHello matched: sni={:?} path={:?}",
+                            sni, packet_path
+                        );
+                        state.inc_sni();
+
+                        let packets = wrong_checksum.process(packet);
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| fake_sni.process(p))
+                            .collect();
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| overlap.process(p))
+                            .collect();
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| ip_frag.process(p))
+                            .collect();
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| sni_split.process(p))
+                            .collect();
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| tcp_fragment.process(p))
+                            .collect();
+                        let packets: Vec<_> = packets
+                            .into_iter()
+                            .flat_map(|p| fake_packet.process(p))
+                            .collect();
+                        shuffle.process_batch(packets)
+                    }
                 } else {
                     vec![packet]
                 };
 
+                fn should_drop_udp_443(bytes: &[u8], app_handle: &tauri::AppHandle) -> bool {
+                    use crate::{
+                        packet_key::{ConnectionKey, TransportProtocol},
+                        state::AppState,
+                    };
+
+                    let Some(key) = ConnectionKey::from_raw(bytes) else {
+                        return false;
+                    };
+
+                    if key.protocol != TransportProtocol::Udp {
+                        return false;
+                    }
+
+                    let state = app_handle.state::<AppState>();
+                    let packet_path = state
+                        .pid_for_connection_or_local_port(&key)
+                        .and_then(|pid| state.path_for_pid(pid));
+
+                    state
+                        .settings_snapshot()
+                        .sni_enabled_for("", packet_path.as_deref())
+                }
                 for mut mp in mutated_packets {
                     // Reinject the packet into the network stack
                     if let Err(e) = handle.send(&mut mp) {

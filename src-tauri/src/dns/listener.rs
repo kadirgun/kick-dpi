@@ -1,5 +1,6 @@
 use log::{error, info};
 use std::sync::{Arc, Mutex};
+use tauri::Manager;
 use windivert::{
     address::WinDivertAddress, layer::NetworkLayer, packet::WinDivertPacket,
     prelude::WinDivertFlags, ShutdownHandle, WinDivert,
@@ -21,15 +22,15 @@ pub fn stop_dns_listener() {
     }
 }
 
-pub fn start_dns_listener() {
+pub fn start_dns_listener(app_handle: tauri::AppHandle) {
     std::thread::Builder::new()
         .name("windivert-dns".into())
         .stack_size(32 * 1024 * 1024)
-        .spawn(run_dns_listener)
+        .spawn(move || run_dns_listener(app_handle))
         .expect("failed to spawn DNS listener thread");
 }
 
-fn run_dns_listener() {
+fn run_dns_listener(app_handle: tauri::AppHandle) {
     let client = Arc::new(doh::build_client());
 
     let handle = match WinDivert::network(DNS_FILTER, 1, WinDivertFlags::default()) {
@@ -60,11 +61,12 @@ fn run_dns_listener() {
 
                 let client = Arc::clone(&client);
                 let handle = Arc::clone(&handle);
+                let app_handle = app_handle.clone();
 
                 // Spawn an async task so the recv loop is never blocked by
                 // the outgoing HTTP request to the DoH server.
                 tauri::async_runtime::spawn(async move {
-                    handle_dns_packet(&handle, &client, bytes, addr).await;
+                    handle_dns_packet(&handle, &client, bytes, addr, &app_handle).await;
                 });
             }
             Err(e) => {
@@ -79,6 +81,7 @@ async fn handle_dns_packet(
     client: &reqwest::Client,
     raw: Vec<u8>,
     addr: WinDivertAddress<NetworkLayer>,
+    app_handle: &tauri::AppHandle,
 ) {
     // Locate the start of the UDP payload (= raw DNS message)
     let ip_ihl = match raw.first() {
@@ -111,7 +114,27 @@ async fn handle_dns_packet(
         }
     };
 
-    info!("[dns] {} QTYPE={}", query.name, query.qtype);
+    {
+        use crate::{packet_key::ConnectionKey, state::AppState};
+
+        let state = app_handle.state::<AppState>();
+        let packet_path = ConnectionKey::from_raw(&raw).and_then(|key| {
+            let pid = state.pid_for_connection_or_local_port(&key)?;
+            state.path_for_pid(pid)
+        });
+
+        if !state
+            .settings_snapshot()
+            .dns_enabled_for(&query.name, packet_path.as_deref())
+        {
+            reinject_original(handle, raw, addr);
+            return;
+        }
+
+        info!("[dns] {} QTYPE={}", query.name, query.qtype);
+
+        state.inc_dns();
+    }
 
     // Always let the original query reach the real DNS server immediately.
     // This guarantees DNS resolution works even if DoH is slow or fails.

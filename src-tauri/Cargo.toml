@@ -19,6 +19,7 @@ tauri-build = { version = "2.5.6", features = [] }
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1"
 log = "0.4"
 socket2 = "0.6"
 futures = "0.3"
@@ -36,6 +37,15 @@ reqwest = "0.13.2"
 zip = "4.2.0"
 bytes = "1.11.1"
 etherparse = "0.17.0"
+tauri-plugin-store = "2"
+windows = { version = "0.61.3", features = [
+  "Win32_Foundation",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_System_Threading",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_Networking_WinSock",
+] }
+tauri-plugin-dialog = "2"
 
 
 [target.'cfg(windows)'.dependencies]

@@ -15,8 +15,10 @@
         "title": "Kick DPI",
         "width": 800,
         "height": 600,
-        "resizable": true,
-        "fullscreen": false
+        "resizable": false,
+        "fullscreen": false,
+        "maximizable": false,
+        "center": true
       }
     ],
     "security": {

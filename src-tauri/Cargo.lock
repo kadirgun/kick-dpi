@@ -91,6 +91,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "etherparse 0.17.0",
  "futures",
  "log",
  "reqwest",
@@ -966,6 +967,15 @@ dependencies = [
  "serde",
  "serde_core",
  "typeid",
+]
+
+[[package]]
+name = "etherparse"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b14e4ac78394e3ea04edbbc412099cf54f2f52ded51efb79c466a282729399d2"
+dependencies = [
+ "arrayvec",
 ]
 
 [[package]]
@@ -5147,7 +5157,7 @@ version = "0.7.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bbb7dcc054cce9781ee0d258fa4115182bdc3fc8706350476d4ce96206daed9"
 dependencies = [
- "etherparse",
+ "etherparse 0.18.2",
  "thiserror 2.0.18",
  "windivert-sys",
  "windows 0.62.2",

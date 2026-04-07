@@ -1,4 +1,6 @@
-pub(crate) mod bypass;
+pub(crate) mod dns;
+pub(crate) mod setup;
+pub(crate) mod sni;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,8 +16,9 @@ pub fn run() {
 
             #[cfg(windows)]
             tauri::async_runtime::spawn(async move {
-                bypass::setup::ensure_windivert().await;
-                bypass::start_listener(bypass::default_pipeline());
+                setup::ensure_windivert().await;
+                sni::start_listener();
+                dns::start_dns_listener();
             });
 
             Ok(())

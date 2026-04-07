@@ -1,8 +1,8 @@
 use log::{error, info};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use windivert::{
     address::WinDivertAddress, layer::NetworkLayer, packet::WinDivertPacket,
-    prelude::WinDivertFlags, WinDivert,
+    prelude::WinDivertFlags, ShutdownHandle, WinDivert,
 };
 use windivert_sys::ChecksumFlags;
 
@@ -10,6 +10,16 @@ use super::{doh, forge, parse};
 
 // WinDivert filter: outgoing UDP packets destined for port 53
 const DNS_FILTER: &str = "udp.DstPort == 53 and outbound";
+
+static DNS_SHUTDOWN: Mutex<Option<ShutdownHandle>> = Mutex::new(None);
+
+pub fn stop_dns_listener() {
+    if let Ok(mut guard) = DNS_SHUTDOWN.lock() {
+        if let Some(sh) = guard.take() {
+            let _ = sh.shutdown();
+        }
+    }
+}
 
 pub fn start_dns_listener() {
     std::thread::Builder::new()
@@ -25,7 +35,11 @@ fn run_dns_listener() {
     let handle = match WinDivert::network(DNS_FILTER, 1, WinDivertFlags::default()) {
         Ok(h) => {
             info!("[dns] WinDivert handle opened (filter: {DNS_FILTER})");
-            Arc::new(h)
+            let handle = Arc::new(h);
+            if let Ok(mut guard) = DNS_SHUTDOWN.lock() {
+                *guard = Some(handle.shutdown_handle());
+            }
+            handle
         }
         Err(e) => {
             error!("[dns] Failed to open WinDivert handle: {e}");

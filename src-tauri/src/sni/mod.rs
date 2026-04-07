@@ -18,3 +18,7 @@ pub fn start_listener() {
         .spawn(move || listener::run_listener(FILTER))
         .expect("failed to spawn WinDivert listener thread");
 }
+
+pub fn stop_listener() {
+    listener::stop_listener();
+}

@@ -1,5 +1,6 @@
 use log::{error, info};
-use windivert::{prelude::WinDivertFlags, WinDivert};
+use std::sync::Mutex;
+use windivert::{prelude::WinDivertFlags, ShutdownHandle, WinDivert};
 
 use super::strategies::{
     FakePacketStrategy, FakeSniStrategy, IpFragStrategy, OverlapStrategy, ShuffleStrategy,
@@ -102,6 +103,16 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
     None
 }
 
+static SNI_SHUTDOWN: Mutex<Option<ShutdownHandle>> = Mutex::new(None);
+
+pub(super) fn stop_listener() {
+    if let Ok(mut guard) = SNI_SHUTDOWN.lock() {
+        if let Some(sh) = guard.take() {
+            let _ = sh.shutdown();
+        }
+    }
+}
+
 /// Blocking recv/reinject loop.
 pub(super) fn run_listener(filter: &str) {
     let wrong_checksum = WrongChecksumStrategy::default();
@@ -115,6 +126,9 @@ pub(super) fn run_listener(filter: &str) {
     let handle = match WinDivert::network(filter, 0, WinDivertFlags::default()) {
         Ok(h) => {
             info!("[sni] WinDivert handle opened (filter: {filter})");
+            if let Ok(mut guard) = SNI_SHUTDOWN.lock() {
+                *guard = Some(h.shutdown_handle());
+            }
             h
         }
         Err(e) => {

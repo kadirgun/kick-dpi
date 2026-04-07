@@ -4,6 +4,16 @@ pub(crate) mod dns;
 pub(crate) mod setup;
 pub(crate) mod sni;
 
+#[tauri::command]
+fn stop_dns_listener() {
+    dns::stop_dns_listener();
+}
+
+#[tauri::command]
+fn stop_sni_listener() {
+    sni::stop_listener();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -31,6 +41,10 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![
+            stop_dns_listener,
+            stop_sni_listener
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

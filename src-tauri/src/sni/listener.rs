@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, error, info};
 use std::sync::Mutex;
 use tauri::Manager;
 use windivert::{prelude::WinDivertFlags, ShutdownHandle, WinDivert};
@@ -179,7 +179,7 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                         .sni_enabled_for(sni.as_deref().unwrap_or(""), packet_path.as_deref());
 
                     if !should_apply {
-                        info!(
+                        debug!(
                             "[sni] no rule matched: sni={:?} path={:?}",
                             sni, packet_path
                         );

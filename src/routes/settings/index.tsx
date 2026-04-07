@@ -1,12 +1,15 @@
-"use client";
-
 import { useAppSettingsQuery } from "@/services/settings";
 import { Alert, LoadingOverlay, Stack, Tabs, Text } from "@mantine/core";
-import { DnsSettingsForm } from "./_components/dns-settings-form";
-import { PerformanceForm } from "./_components/performance-form";
-import { SniStrategiesForm } from "./_components/sni-strategies-form";
+import { createFileRoute } from "@tanstack/react-router";
+import { DnsSettingsForm } from "../../app/settings/_components/dns-settings-form";
+import { PerformanceForm } from "../../app/settings/_components/performance-form";
+import { SniStrategiesForm } from "../../app/settings/_components/sni-strategies-form";
 
-export default function SettingsPage() {
+export const Route = createFileRoute("/settings/")({
+  component: SettingsPage,
+});
+
+function SettingsPage() {
   const { isLoading, error } = useAppSettingsQuery();
 
   if (error) {

@@ -1,7 +1,7 @@
 import { resetConnectionsForRules, useDeleteRuleMutation, type Rule } from "@/services/settings";
 import { ActionIcon, Group, Table, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconCheck, IconEdit, IconNetworkOff, IconTrash, IconX } from "@tabler/icons-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 export type RulesTableRowProps = {
@@ -55,9 +55,11 @@ export function RulesTableRow({ rule }: RulesTableRowProps) {
       </Table.Td>
       <Table.Td>
         <Group gap="xs" justify="end">
-          <ActionIcon color="blue" variant="light" component={Link} href={`/rules/edit?ruleId=${rule.id}`}>
-            <IconEdit size={14} />
-          </ActionIcon>
+          <Link to="/rules/edit/$ruleId" params={{ ruleId: rule.id }}>
+            <ActionIcon color="blue" variant="light">
+              <IconEdit size={14} />
+            </ActionIcon>
+          </Link>
           <Tooltip label="Reset connections matching this rule" withArrow>
             <ActionIcon
               color="orange"

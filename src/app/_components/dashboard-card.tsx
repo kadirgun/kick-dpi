@@ -1,5 +1,3 @@
-"use client";
-
 import { Card, Group, Paper, Stack, Text } from "@mantine/core";
 import type React from "react";
 

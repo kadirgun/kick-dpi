@@ -1,5 +1,3 @@
-"use client";
-
 import { useAppSettingsQuery, useDefaultAppSettingsQuery, useUpdateAppSettingsMutation } from "@/services/settings";
 import { ActionIcon, Affix, Badge, Button, Group, NumberInput, SimpleGrid, Stack, Text } from "@mantine/core";
 import { useForm } from "@mantine/form";

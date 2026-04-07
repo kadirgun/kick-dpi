@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.kadirgun.kick-dpi",
   "build": {
-    "frontendDist": "../out",
-    "devUrl": "http://localhost:3000",
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5524",
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build"
   },

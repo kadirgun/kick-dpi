@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckboxCard } from "@/app/_components/checkbox-card/checkbox-card";
 import { useAppSettingsQuery, useDefaultAppSettingsQuery, useUpdateAppSettingsMutation } from "@/services/settings";
 import { Affix, Badge, Button, Group, SimpleGrid, Stack, Text } from "@mantine/core";

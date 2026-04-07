@@ -1,5 +1,3 @@
-"use client";
-
 import { useProcessesQuery } from "@/services/processes";
 import { Rule, useCreateRuleMutation, useRuleQuery, useUpdateRuleMutation } from "@/services/settings";
 import { ActionIcon, Button, Checkbox, Fieldset, Group, Paper, Select, Stack, TextInput } from "@mantine/core";
@@ -7,9 +5,9 @@ import { useForm } from "@mantine/form";
 import { getHotkeyHandler } from "@mantine/hooks";
 import { showNotification } from "@mantine/notifications";
 import { IconFolderOpen, IconRefresh, IconTrash } from "@tabler/icons-react";
+import { useNavigate } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import { random, snakeCase, uniqBy } from "lodash-es";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo } from "react";
 
 export type RuleFormProps = {
@@ -91,7 +89,7 @@ export function RuleForm({ ruleId }: RuleFormProps) {
     }));
   }, [processes]);
 
-  const router = useRouter();
+  const navigate = useNavigate();
   const { mutateAsync: createRule } = useCreateRuleMutation();
   const { mutateAsync: updateRule } = useUpdateRuleMutation();
   const handleSubmit = async (values: Rule) => {
@@ -113,7 +111,7 @@ export function RuleForm({ ruleId }: RuleFormProps) {
       });
 
       if (!ruleId) {
-        router.push(`/rules/edit?ruleId=${newRule.id}`);
+        navigate({ to: "/rules/edit/$ruleId", params: { ruleId: newRule.id } });
       }
     });
   };

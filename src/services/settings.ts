@@ -146,5 +146,13 @@ export const useAppSettingsQuery = () => {
   };
 };
 
+export const useDefaultAppSettingsQuery = () => {
+  return useQuery({
+    queryKey: ["default-app-settings"],
+    queryFn: () => invoke<AppSettings>("get_default_app_settings"),
+    staleTime: Infinity,
+  });
+};
+
 export const resetConnectionsForRules = (ruleIds: string[]): Promise<void> =>
   invoke("reset_connections_for_rule_ids", { ruleIds });

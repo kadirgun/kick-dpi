@@ -88,6 +88,11 @@ fn get_processes(state: tauri::State<'_, state::AppState>) -> Vec<state::Process
     state.processes_snapshot()
 }
 
+#[tauri::command]
+fn get_default_app_settings() -> settings::AppSettings {
+    settings::AppSettings::default()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -163,6 +168,7 @@ pub fn run() {
             get_dns_packets,
             get_sni_packets,
             get_processes,
+            get_default_app_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

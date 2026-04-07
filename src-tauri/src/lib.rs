@@ -9,7 +9,6 @@ pub(crate) mod flow_cache;
 pub(crate) mod packet_key;
 pub(crate) mod process_cache;
 pub(crate) mod settings;
-pub(crate) mod setup;
 pub(crate) mod sni;
 pub(crate) mod state;
 
@@ -146,7 +145,6 @@ pub fn run() {
             {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    setup::ensure_windivert().await;
                     flow_cache::start_flow_listener(handle.clone());
                     process_cache::start_process_cache(handle.clone());
                     sni::start_listener(handle.clone());

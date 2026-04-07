@@ -23,7 +23,7 @@ pub async fn query_doh(client: &Client, wire: &[u8]) -> Result<Vec<u8>, reqwest:
 /// DNS listener thread pool for too long.
 pub fn build_client() -> Client {
     Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(2))
         .build()
         .expect("failed to build DoH HTTP client")
 }

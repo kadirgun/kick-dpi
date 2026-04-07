@@ -99,13 +99,17 @@ async fn handle_dns_packet(
 
     info!("[dns] {} QTYPE={}", query.name, query.qtype);
 
+    // Always let the original query reach the real DNS server immediately.
+    // This guarantees DNS resolution works even if DoH is slow or fails.
+    reinject_original(handle, raw.clone(), addr.clone());
+
+    // Also try DoH — if it responds before the real DNS answer arrives, the
+    // OS receives a correct (unblocked) answer first.
     let doh_response = match doh::query_doh(client, &query.wire).await {
         Ok(r) => r,
         Err(e) => {
             error!("[dns] DoH request failed for {}: {e}", query.name);
-            // Fall back: let the original query reach the system DNS
-            reinject_original(handle, raw, addr);
-            return;
+            return; // original already reinjected above
         }
     };
 
@@ -113,7 +117,6 @@ async fn handle_dns_packet(
         Some(p) => p,
         None => {
             error!("[dns] Failed to forge response for {}", query.name);
-            reinject_original(handle, raw, addr);
             return;
         }
     };
@@ -132,9 +135,6 @@ async fn handle_dns_packet(
     if let Err(e) = handle.send(&mut reply) {
         error!("[dns] Failed to inject DoH reply: {e}");
     }
-
-    // The original outgoing query is simply dropped (not reinjected) so the
-    // real DNS server never receives it.
 }
 
 /// Reinjection helper — forwards the original packet unchanged when we cannot

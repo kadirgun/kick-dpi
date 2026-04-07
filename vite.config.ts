@@ -24,5 +24,6 @@ export default defineConfig({
     target: "chrome105",
     minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    chunkSizeWarningLimit: 1024 * 50,
   },
 });

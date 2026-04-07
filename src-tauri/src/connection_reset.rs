@@ -21,8 +21,8 @@ struct TcpEntry {
     remote_port: u16,
 }
 
-fn get_all_tcp_connections() -> Vec<TcpEntry> {
-    let mut buf: Vec<u8> = vec![0u8; 4096];
+fn get_all_tcp_connections(initial_buf_size: usize) -> Vec<TcpEntry> {
+    let mut buf: Vec<u8> = vec![0u8; initial_buf_size.max(4096)];
     let mut size = buf.len() as u32;
 
     loop {
@@ -84,7 +84,12 @@ pub fn reset_connections_for_rules(rules: &[&Rule], state: &AppState) {
         return;
     }
 
-    let connections = get_all_tcp_connections();
+    let buf_kb = state
+        .settings_snapshot()
+        .app
+        .performance
+        .connection_reset_buffer_kb;
+    let connections = get_all_tcp_connections(buf_kb * 1024);
     let mut reset_count = 0;
 
     for entry in connections {

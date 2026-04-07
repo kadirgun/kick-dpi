@@ -128,14 +128,12 @@ pub(super) fn stop_listener() {
 
 /// Blocking recv/reinject loop.
 pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
-    let wrong_checksum = WrongChecksumStrategy::default();
-    let fake_sni = FakeSniStrategy::default();
-    let overlap = OverlapStrategy::default();
-    let ip_frag = IpFragStrategy::default();
-    let sni_split = SniSplitStrategy;
-    let tcp_fragment = TcpFragmentStrategy::default();
-    let fake_packet = FakePacketStrategy::default();
-    let shuffle = ShuffleStrategy;
+    let buf_size = app_handle
+        .state::<crate::state::AppState>()
+        .settings_snapshot()
+        .app
+        .performance
+        .packet_buffer_size;
     let handle = match WinDivert::network(filter, 0, WinDivertFlags::default()) {
         Ok(h) => {
             info!("[sni] WinDivert handle opened (filter: {filter})");
@@ -150,7 +148,7 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
         }
     };
 
-    let mut buf = vec![0u8; 65_535];
+    let mut buf = vec![0u8; buf_size];
 
     info!("[sni] listener loop started");
 
@@ -193,32 +191,55 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                         );
                         state.inc_sni();
 
-                        let packets = wrong_checksum.process(packet);
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| fake_sni.process(p))
-                            .collect();
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| overlap.process(p))
-                            .collect();
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| ip_frag.process(p))
-                            .collect();
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| sni_split.process(p))
-                            .collect();
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| tcp_fragment.process(p))
-                            .collect();
-                        let packets: Vec<_> = packets
-                            .into_iter()
-                            .flat_map(|p| fake_packet.process(p))
-                            .collect();
-                        shuffle.process_batch(packets)
+                        let app_settings = state.settings_snapshot().app;
+                        let strats = &app_settings.sni.strategies;
+                        let params = &app_settings.strategy_params;
+
+                        let mut packets = vec![packet];
+
+                        if strats.get("WrongChecksum").copied().unwrap_or(true) {
+                            let s = WrongChecksumStrategy {
+                                decoy_ttl: params.wrong_checksum_decoy_ttl as u8,
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("FakeSni").copied().unwrap_or(true) {
+                            let s = FakeSniStrategy {
+                                decoy_ttl: params.fake_sni_decoy_ttl as u8,
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("Overlap").copied().unwrap_or(true) {
+                            let s = OverlapStrategy {
+                                decoy_ttl: params.overlap_decoy_ttl as u8,
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("IpFrag").copied().unwrap_or(true) {
+                            let s = IpFragStrategy {
+                                first_frag_payload_bytes: params.ip_frag_first_payload_bytes
+                                    as usize,
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("SniSplit").copied().unwrap_or(true) {
+                            packets = packets
+                                .into_iter()
+                                .flat_map(|p| SniSplitStrategy.process(p))
+                                .collect();
+                        }
+                        if strats.get("TcpFragment").copied().unwrap_or(true) {
+                            let s = TcpFragmentStrategy::default();
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("FakePacket").copied().unwrap_or(true) {
+                            let s = FakePacketStrategy::default();
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("Shuffle").copied().unwrap_or(true) {
+                            packets = ShuffleStrategy.process_batch(packets);
+                        }
+                        packets
                     }
                 } else {
                     vec![packet]

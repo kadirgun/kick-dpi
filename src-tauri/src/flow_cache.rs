@@ -85,7 +85,13 @@ fn run_flow_listener(app_handle: tauri::AppHandle) {
             }
             Err(e) => {
                 error!("[flow] recv error: {e}");
-                thread::sleep(Duration::from_millis(50));
+                let sleep_ms = app_handle
+                    .state::<AppState>()
+                    .settings_snapshot()
+                    .app
+                    .performance
+                    .flow_cache_sleep_ms as u64;
+                thread::sleep(Duration::from_millis(sleep_ms));
             }
         }
     }

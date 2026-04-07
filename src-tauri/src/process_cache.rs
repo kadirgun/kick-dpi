@@ -61,11 +61,19 @@ fn run_process_cache(
             }
         }
 
-        for _ in 0..50 {
+        let refresh_ms = app_handle
+            .state::<AppState>()
+            .settings_snapshot()
+            .app
+            .performance
+            .process_cache_refresh_ms as u64;
+        let step_ms = 100u64;
+        let steps = (refresh_ms / step_ms).max(1);
+        for _ in 0..steps {
             if stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(step_ms));
         }
     }
 }

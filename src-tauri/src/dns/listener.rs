@@ -48,7 +48,13 @@ fn run_dns_listener(app_handle: tauri::AppHandle) {
         }
     };
 
-    let mut buf = vec![0u8; 65_535];
+    let buf_size = app_handle
+        .state::<crate::state::AppState>()
+        .settings_snapshot()
+        .app
+        .performance
+        .dns_buffer_size;
+    let mut buf = vec![0u8; buf_size];
 
     info!("[dns] listener loop started");
 
@@ -142,7 +148,16 @@ async fn handle_dns_packet(
 
     // Also try DoH — if it responds before the real DNS answer arrives, the
     // OS receives a correct (unblocked) answer first.
-    let doh_response = match doh::query_doh(client, &query.wire).await {
+    let (doh_url, doh_timeout_ms) = {
+        use crate::state::AppState;
+        let settings = app_handle.state::<AppState>().settings_snapshot();
+        let dns = &settings.app.dns;
+        (
+            doh::provider_url(&dns.provider, dns.custom_url.as_deref()),
+            dns.timeout_ms,
+        )
+    };
+    let doh_response = match doh::query_doh(client, &query.wire, &doh_url, doh_timeout_ms).await {
         Ok(r) => r,
         Err(e) => {
             error!("[dns] DoH request failed for {}: {e}", query.name);

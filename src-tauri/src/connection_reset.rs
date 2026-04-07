@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 
 use log::{info, warn};
 use windows::Win32::NetworkManagement::IpHelper::{
-    GetExtendedTcpTable, MIB_TCPROW_LH, MIB_TCPTABLE_OWNER_PID, SetTcpEntry,
+    GetExtendedTcpTable, SetTcpEntry, MIB_TCPROW_LH, MIB_TCPTABLE_OWNER_PID,
     TCP_TABLE_OWNER_PID_ALL,
 };
 use windows::Win32::Networking::WinSock::AF_INET;
@@ -105,9 +105,7 @@ pub fn reset_connections_for_rules(rules: &[&Rule], state: &AppState) {
 
         // Must pass the exact values read from the table; only dwState changes to 12 (DELETE_TCB)
         let mut row = MIB_TCPROW_LH {
-            Anonymous: windows::Win32::NetworkManagement::IpHelper::MIB_TCPROW_LH_0 {
-                dwState: 12,
-            },
+            Anonymous: windows::Win32::NetworkManagement::IpHelper::MIB_TCPROW_LH_0 { dwState: 12 },
             dwLocalAddr: entry.local_addr_raw,
             dwLocalPort: entry.local_port_raw,
             dwRemoteAddr: entry.remote_addr_raw,

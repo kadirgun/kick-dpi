@@ -6,8 +6,22 @@ const WINDIVERT_URL: &str =
     "https://github.com/basil00/WinDivert/releases/download/v2.2.2/WinDivert-2.2.2-A.zip";
 
 pub async fn ensure_windivert() {
-    let dll_path = std::path::PathBuf::from("WinDivert.dll");
-    let sys_path = std::path::PathBuf::from("WinDivert64.sys");
+    let exe_dir = match std::env::current_exe() {
+        Ok(exe_path) => match exe_path.parent() {
+            Some(dir) => dir.to_path_buf(),
+            None => {
+                error!("[setup] Could not get parent directory of exe");
+                return;
+            }
+        },
+        Err(e) => {
+            error!("[setup] Failed to get current exe path: {}", e);
+            return;
+        }
+    };
+
+    let dll_path = exe_dir.join("WinDivert.dll");
+    let sys_path = exe_dir.join("WinDivert64.sys");
 
     if dll_path.exists() && sys_path.exists() {
         info!("[setup] WinDivert binaries already exist, skipping download.");

@@ -3,8 +3,8 @@ import { IconNetwork, IconRoute, IconShieldShare } from "@tabler/icons-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { DashboardCard } from "../app/_components/dashboard-card";
-import { RulesTable } from "../app/_components/rules-table";
+import { DashboardCard } from "../components/dashboard-card";
+import { RulesTable } from "../components/rules-table";
 
 export const Route = createFileRoute("/")({
   component: Home,

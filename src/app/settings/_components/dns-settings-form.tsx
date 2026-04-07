@@ -13,7 +13,7 @@ const DNS_PROVIDERS = [
   { value: "Cloudflare", label: "Cloudflare (1.1.1.1)" },
   { value: "Quad9", label: "Quad9 (9.9.9.9)" },
   { value: "NextDNS", label: "NextDNS (45.90.28.1)" },
-  { value: "Custom", label: "Custom URL" },
+  { value: "Custom", label: "Custom DoH URL" },
 ];
 
 export function DnsSettingsForm() {

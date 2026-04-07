@@ -3,7 +3,7 @@ import { IconNetwork, IconRoute, IconShieldShare } from "@tabler/icons-react";
 import { createFileRoute } from "@tanstack/react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { useEffect, useState } from "react";
-import { DashBoardCard } from "../app/_components/dashboard-card";
+import { DashboardCard } from "../app/_components/dashboard-card";
 import { RulesTable } from "../app/_components/rules-table";
 
 export const Route = createFileRoute("/")({
@@ -57,7 +57,7 @@ function Home() {
   return (
     <Stack>
       <SimpleGrid cols={2} mt="md">
-        <DashBoardCard title="SNI Packets" icon={<IconShieldShare size={12} />}>
+        <DashboardCard title="SNI Packets" icon={<IconShieldShare size={12} />}>
           <Stack gap="xs" p="md">
             <Text c="dimmed" size="sm">
               Total number of SNI packets captured since the application started.
@@ -66,8 +66,8 @@ function Home() {
               {sniPackets}
             </Text>
           </Stack>
-        </DashBoardCard>
-        <DashBoardCard title="DNS Packets" icon={<IconNetwork size={12} />}>
+        </DashboardCard>
+        <DashboardCard title="DNS Packets" icon={<IconNetwork size={12} />}>
           <Stack gap="xs" p="md">
             <Text c="dimmed" size="sm">
               Total number of DNS packets captured since the application started.
@@ -76,13 +76,13 @@ function Home() {
               {dnsPackets}
             </Text>
           </Stack>
-        </DashBoardCard>
+        </DashboardCard>
       </SimpleGrid>
-      <DashBoardCard title="Active Rules" icon={<IconRoute size={12} />}>
+      <DashboardCard title="Active Rules" icon={<IconRoute size={12} />}>
         <Box p="md">
           <RulesTable />
         </Box>
-      </DashBoardCard>
+      </DashboardCard>
     </Stack>
   );
 }

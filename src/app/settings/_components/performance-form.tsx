@@ -124,7 +124,7 @@ export function PerformanceForm() {
 
             <div>
               <NumberInput
-                label="Flow Cache Sleep (ms)"
+                label="Flow Cache Interval (ms)"
                 min={10}
                 step={10}
                 leftSection={fieldRestoreIcon("flow_cache_sleep_ms", defaults?.performance.flow_cache_sleep_ms)}
@@ -132,7 +132,7 @@ export function PerformanceForm() {
                 {...form.getInputProps("flow_cache_sleep_ms")}
               />
               <Text size="xs" c="dimmed" mt={4}>
-                Flow cache thread sleep duration
+                Flow cache evaluation interval
               </Text>
             </div>
           </SimpleGrid>

@@ -8,12 +8,12 @@ import { useEffect } from "react";
 const AVAILABLE_STRATEGIES = [
   { name: "WrongChecksum", description: "Wrong TCP checksum with decoy packet" },
   { name: "FakeSni", description: "Fake SNI with decoy packet" },
-  { name: "Overlap", description: "Low TTL overlapping segment" },
+  { name: "Overlap", description: "Low TTL overlapping packet" },
   { name: "IpFrag", description: "IP fragmentation splitting" },
-  { name: "SniSplit", description: "TLS layer splitting" },
+  { name: "SniSplit", description: "SNI hostname splitting" },
   { name: "TcpFragment", description: "TCP fragmentation splitting" },
-  { name: "FakePacket", description: "Fake handshake packet" },
-  { name: "Shuffle", description: "Reorder packet sequence" },
+  { name: "FakePacket", description: "Corrupted decoy packets (before and after)" },
+  { name: "Shuffle", description: "Reorder packets in sequence" },
 ];
 
 const DEFAULT_STRATEGIES = Object.fromEntries(AVAILABLE_STRATEGIES.map((s) => [s.name, false]));

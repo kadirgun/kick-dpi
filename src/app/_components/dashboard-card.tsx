@@ -1,7 +1,7 @@
 import { Card, Group, Paper, Stack, Text } from "@mantine/core";
 import type React from "react";
 
-export type DashBoardCardProps = {
+export type DashboardCardProps = {
   title: string;
   children?: React.ReactNode;
   icon?: React.ReactNode;
@@ -9,7 +9,7 @@ export type DashBoardCardProps = {
   footer?: React.ReactNode;
 };
 
-export function DashBoardCard({ title, icon, children, rightSection, footer }: DashBoardCardProps) {
+export function DashboardCard({ title, icon, children, rightSection, footer }: DashboardCardProps) {
   return (
     <Card radius="md" withBorder>
       <Card.Section inheritPadding py={8} bg="dark.8">

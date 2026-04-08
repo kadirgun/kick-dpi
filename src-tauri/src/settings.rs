@@ -184,37 +184,45 @@ pub struct Rule {
     pub name: String,
     pub hosts: Vec<String>,
     pub paths: Vec<String>,
+    #[serde(default)]
+    pub ip_addresses: Vec<String>,
     pub dns_enabled: bool,
     pub sni_enabled: bool,
 }
 
 impl Settings {
-    pub fn dns_enabled_for(&self, host: &str, path: Option<&str>) -> bool {
+    pub fn dns_enabled_for(&self, host: &str, path: Option<&str>, ip: Option<&str>) -> bool {
         self.rules
             .iter()
-            .any(|rule| rule.dns_enabled && rule.matches(host, path))
+            .any(|rule| rule.dns_enabled && rule.matches(host, path, ip))
     }
 
-    pub fn sni_enabled_for(&self, host: &str, path: Option<&str>) -> bool {
+    pub fn sni_enabled_for(&self, host: &str, path: Option<&str>, ip: Option<&str>) -> bool {
         self.rules
             .iter()
-            .any(|rule| rule.sni_enabled && rule.matches(host, path))
+            .any(|rule| rule.sni_enabled && rule.matches(host, path, ip))
     }
 }
 
 impl Rule {
-    pub fn matches(&self, host: &str, path: Option<&str>) -> bool {
-        if let Some(path) = path {
-            if self.paths.iter().any(|pattern| matches_path(pattern, path)) {
+    pub fn matches(&self, host: &str, path: Option<&str>, ip: Option<&str>) -> bool {
+        if let Some(addr) = ip {
+            if self.ip_addresses.iter().any(|pat| matches_ip(pat, addr)) {
                 return true;
             }
         }
 
-        if self.hosts.is_empty() {
-            return false;
+        if self.hosts.iter().any(|pat| matches_host(pat, host)) {
+            return true;
         }
 
-        self.hosts.iter().any(|pattern| matches_host(pattern, host))
+        if let Some(p) = path {
+            if self.paths.iter().any(|pat| matches_path(pat, p)) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn path_matches(&self, path: &str) -> bool {
@@ -266,6 +274,10 @@ fn matches_host(pattern: &str, value: &str) -> bool {
 
 fn matches_path(pattern: &str, value: &str) -> bool {
     wildcard_match(&normalize_path(pattern), &normalize_path(value))
+}
+
+fn matches_ip(range: &str, ip: &str) -> bool {
+    wildcard_match(range.trim(), ip.trim())
 }
 
 fn normalize_host(value: &str) -> String {
@@ -350,18 +362,21 @@ mod tests {
             name: "Discord".into(),
             hosts: vec![],
             paths: vec![r"C:\Users\kadir\AppData\Local\Discord\*\Discord.exe".into()],
+            ip_addresses: vec![],
             dns_enabled: true,
             sni_enabled: true,
         };
 
         assert!(rule.matches(
             "",
-            Some(r"c:\users\kadir\appdata\local\discord\app-1\discord.exe")
+            Some(r"c:\users\kadir\appdata\local\discord\app-1\discord.exe"),
+            None
         ));
-        assert!(!rule.matches("", None));
+        assert!(!rule.matches("", None, None));
         assert!(!rule.matches(
             "",
-            Some(r"c:\users\kadir\appdata\local\discord\discord.exe")
+            Some(r"c:\users\kadir\appdata\local\discord\discord.exe"),
+            None
         ));
     }
 }

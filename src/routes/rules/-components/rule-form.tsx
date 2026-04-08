@@ -1,6 +1,7 @@
+import { CheckboxCard } from "@/components/checkbox-card/checkbox-card";
 import { useProcessesQuery } from "@/services/processes";
 import { Rule, useCreateRuleMutation, useRuleQuery, useUpdateRuleMutation } from "@/services/settings";
-import { ActionIcon, Button, Checkbox, Fieldset, Group, Paper, Select, Stack, TextInput } from "@mantine/core";
+import { ActionIcon, Affix, Button, Fieldset, Group, Paper, Select, Stack, TextInput } from "@mantine/core";
 import { useForm } from "@mantine/form";
 import { getHotkeyHandler } from "@mantine/hooks";
 import { showNotification } from "@mantine/notifications";
@@ -24,6 +25,7 @@ export function RuleForm({ ruleId }: RuleFormProps) {
       name: "",
       hosts: [],
       paths: [],
+      ip_addresses: [],
       dns_enabled: true,
       sni_enabled: true,
     },
@@ -60,6 +62,21 @@ export function RuleForm({ ruleId }: RuleFormProps) {
       />
 
       <ActionIcon color="red" onClick={() => form.removeListItem("paths", index)}>
+        <IconTrash size={16} />
+      </ActionIcon>
+    </Group>
+  ));
+
+  const ipAddresses = form.getValues().ip_addresses.map((item, index) => (
+    <Group key={index + item} mt="xs">
+      <TextInput
+        placeholder="eg: 1.1.1.1 or 1.1.1.*"
+        style={{ flex: 1 }}
+        key={form.key(`ip_addresses.${index}`)}
+        {...form.getInputProps(`ip_addresses.${index}`)}
+      />
+
+      <ActionIcon color="red" onClick={() => form.removeListItem("ip_addresses", index)}>
         <IconTrash size={16} />
       </ActionIcon>
     </Group>
@@ -103,17 +120,25 @@ export function RuleForm({ ruleId }: RuleFormProps) {
 
     const mutation = ruleId ? updateRule : createRule;
 
-    mutation(newRule).then(() => {
-      showNotification({
-        title: "Success",
-        message: ruleId ? "Rule updated successfully" : "Rule created successfully",
-        color: "teal",
-      });
+    mutation(newRule)
+      .then(() => {
+        showNotification({
+          title: "Success",
+          message: ruleId ? "Rule updated successfully" : "Rule created successfully",
+          color: "teal",
+        });
 
-      if (!ruleId) {
-        navigate({ to: "/rules/edit/$ruleId", params: { ruleId: newRule.id } });
-      }
-    });
+        if (!ruleId) {
+          navigate({ to: "/rules/edit/$ruleId", params: { ruleId: newRule.id } });
+        }
+      })
+      .catch((error) => {
+        showNotification({
+          title: "Error",
+          message: error.message || "An error occurred",
+          color: "red",
+        });
+      });
   };
 
   return (
@@ -133,6 +158,7 @@ export function RuleForm({ ruleId }: RuleFormProps) {
                       </ActionIcon>
                     }
                   />
+
                   <Select
                     loading={isProcessesPending}
                     searchable
@@ -157,7 +183,8 @@ export function RuleForm({ ruleId }: RuleFormProps) {
             <Fieldset legend="Hosts">
               <Stack gap="xs">
                 <TextInput
-                  placeholder="Press enter to add host"
+                  description="Press enter to add host"
+                  placeholder="eg: example.com or *.example.com"
                   onKeyDown={getHotkeyHandler([
                     [
                       "Enter",
@@ -172,25 +199,49 @@ export function RuleForm({ ruleId }: RuleFormProps) {
                 {hosts}
               </Stack>
             </Fieldset>
+            <Fieldset legend="IP Addresses">
+              <Stack gap="xs">
+                <TextInput
+                  description="Press enter to add IP address or range"
+                  placeholder="eg: 1.1.1.1 or 1.1.1.*"
+                  onKeyDown={getHotkeyHandler([
+                    [
+                      "Enter",
+                      (event) => {
+                        form.insertListItem("ip_addresses", event.target.value);
+                        event.target.value = "";
+                      },
+                    ],
+                  ])}
+                />
 
-            <Checkbox
-              label="Enable DNS"
-              {...form.getInputProps("dns_enabled", { type: "checkbox" })}
-              key={form.key("dns_enabled")}
-            />
-            <Checkbox
-              label="Enable SNI"
-              {...form.getInputProps("sni_enabled", { type: "checkbox" })}
-              key={form.key("sni_enabled")}
-            />
+                {ipAddresses}
+              </Stack>
+            </Fieldset>
+
+            <Group grow>
+              <CheckboxCard
+                label="TLS/SNI Obfuscation"
+                description="Modifies the TLS handshake structure to trick firewalls and unblock websites."
+                {...form.getInputProps("sni_enabled", { type: "checkbox" })}
+                key={form.key("sni_enabled")}
+              />
+
+              <CheckboxCard
+                label="Transparent Secure DNS (DoH)"
+                description="Automatically intercepts unencrypted DNS queries and resolves them securely over HTTPS."
+                {...form.getInputProps("dns_enabled", { type: "checkbox" })}
+                key={form.key("dns_enabled")}
+              />
+            </Group>
           </Stack>
         </Paper>
 
-        <Paper p="md" pos="fixed" bottom={0} left={0} right={0}>
+        <Affix position={{ bottom: 20, right: 20 }} withinPortal={false}>
           <Group justify="end">
             <Button type="submit">{ruleId ? "Update Rule" : "Create Rule"}</Button>
           </Group>
-        </Paper>
+        </Affix>
       </Stack>
     </form>
   );

@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, error, info};
 use std::sync::{Arc, Mutex};
 use tauri::Manager;
 use windivert::{
@@ -129,16 +129,23 @@ async fn handle_dns_packet(
             state.path_for_pid(pid)
         });
 
+        debug!(
+            "[dns] {} QTYPE={}, Path={}",
+            query.name,
+            query.qtype,
+            packet_path.as_deref().unwrap_or("<unknown>")
+        );
+
         if !state
             .settings_snapshot()
-            .dns_enabled_for(&query.name, packet_path.as_deref())
+            .dns_enabled_for(&query.name, packet_path.as_deref(), None)
         {
             reinject_original(handle, raw, addr);
+            debug!("[dns] No matching rule for {}, passing through", query.name);
             return;
         }
 
-        info!("[dns] {} QTYPE={}", query.name, query.qtype);
-
+        info!("[dns] Rule matched for {}, applying DoH", query.name);
         state.inc_dns();
     }
 

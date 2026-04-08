@@ -212,9 +212,11 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                         state.path_for_pid(pid)
                     });
 
-                    let should_apply = state
-                        .settings_snapshot()
-                        .sni_enabled_for(sni.as_deref().unwrap_or(""), packet_path.as_deref());
+                    let should_apply = state.settings_snapshot().sni_enabled_for(
+                        sni.as_deref().unwrap_or(""),
+                        packet_path.as_deref(),
+                        None,
+                    );
 
                     if !should_apply {
                         debug!(
@@ -304,7 +306,7 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
 
                     state
                         .settings_snapshot()
-                        .sni_enabled_for("", packet_path.as_deref())
+                        .sni_enabled_for("", packet_path.as_deref(), None)
                 }
                 for mut mp in mutated_packets {
                     // Reinject the packet into the network stack

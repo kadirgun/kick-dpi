@@ -1,9 +1,9 @@
 import { useAppSettingsQuery } from "@/services/settings";
 import { Alert, LoadingOverlay, Stack, Tabs, Text } from "@mantine/core";
 import { createFileRoute } from "@tanstack/react-router";
-import { DnsSettingsForm } from "./components/dns-settings-form";
-import { PerformanceForm } from "./components/performance-form";
-import { SniStrategiesForm } from "./components/sni-strategies-form";
+import { DnsSettingsForm } from "./-components/dns-settings-form";
+import { PerformanceForm } from "./-components/performance-form";
+import { SniStrategiesForm } from "./-components/sni-strategies-form";
 
 export const Route = createFileRoute("/settings/")({
   component: SettingsPage,

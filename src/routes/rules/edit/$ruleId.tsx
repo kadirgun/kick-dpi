@@ -1,4 +1,4 @@
-import { RuleForm } from "@/routes/rules/components/rule-form";
+import { RuleForm } from "@/routes/rules/-components/rule-form";
 import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/rules/edit/$ruleId")({

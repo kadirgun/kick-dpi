@@ -286,7 +286,7 @@ export function PerformanceForm() {
         </Group>
       </Stack>
 
-      <Affix position={{ bottom: 20, right: 20 }}>
+      <Affix position={{ bottom: 20, right: 20 }} withinPortal={false}>
         <Group gap="sm">
           <Button
             variant="default"

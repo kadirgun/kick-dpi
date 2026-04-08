@@ -1,4 +1,4 @@
-import { ActionIcon, AppShell, Button, createTheme, Group, MantineProvider } from "@mantine/core";
+import { ActionIcon, AppShell, Button, createTheme, Group, MantineProvider, ScrollArea, Stack } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { IconHome, IconPower, IconSettings } from "@tabler/icons-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ function RootLayout() {
     <MantineProvider theme={theme} defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <Notifications />
-        <AppShell header={{ height: 60 }} padding="md">
+        <AppShell header={{ height: 60 }} padding="md" mode="static" h="100vh">
           <AppShell.Header>
             <Group h="100%" justify="space-between" align="center" px="md">
               <Group align="center">
@@ -39,8 +39,12 @@ function RootLayout() {
             </Group>
           </AppShell.Header>
 
-          <AppShell.Main>
-            <Outlet />
+          <AppShell.Main component={Stack} p={0}>
+            <ScrollArea h="calc(100dvh - var(--app-shell-header-height))" offsetScrollbars>
+              <Stack p="md">
+                <Outlet />
+              </Stack>
+            </ScrollArea>
           </AppShell.Main>
         </AppShell>
       </QueryClientProvider>

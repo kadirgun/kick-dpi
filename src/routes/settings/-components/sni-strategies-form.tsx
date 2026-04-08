@@ -89,7 +89,7 @@ export function SniStrategiesForm() {
         </Badge>
       </Stack>
 
-      <Affix position={{ bottom: 20, right: 20 }}>
+      <Affix position={{ bottom: 20, right: 20 }} withinPortal={false}>
         <Group gap="sm">
           <Button
             variant="default"

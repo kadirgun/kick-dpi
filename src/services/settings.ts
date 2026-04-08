@@ -7,6 +7,7 @@ export type Rule = {
   name: string;
   hosts: string[];
   paths: string[];
+  ip_addresses: string[];
   dns_enabled: boolean;
   sni_enabled: boolean;
 };

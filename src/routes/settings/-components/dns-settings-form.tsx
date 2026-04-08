@@ -79,6 +79,7 @@ export function DnsSettingsForm() {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
+
     updateMutation.mutate({
       ...settings,
       dns: {
@@ -161,7 +162,7 @@ export function DnsSettingsForm() {
         )}
       </Stack>
 
-      <Affix position={{ bottom: 20, right: 20 }}>
+      <Affix position={{ bottom: 20, right: 20 }} withinPortal={false}>
         <Group gap="sm">
           <Button
             variant="default"

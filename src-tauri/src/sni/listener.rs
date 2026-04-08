@@ -45,22 +45,34 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
     }
 
     let record_len = u16::from_be_bytes([payload[3], payload[4]]) as usize;
-    if payload.len() < 5 + record_len {
-        return None;
-    }
+    // Accept partial records (TSO: IP Total Length = 0, actual data may exceed record_len field)
+    let _ = record_len;
 
     let handshake = &payload[5..];
     if handshake.len() < 38 {
+        debug!(
+            "[sni] extract_sni: handshake too short ({})",
+            handshake.len()
+        );
         return None;
     }
     if handshake[0] != 0x01 {
+        debug!(
+            "[sni] extract_sni: not ClientHello (handshake type={:#x})",
+            handshake[0]
+        );
         return None;
-    } // Only ClientHello
+    }
 
     let mut pos = 38; // After Random (32) + Protocol Version (2) + Handshake Type(1) + Handshake Len(3) = 38 bytes
 
     // Skip Session ID
     if pos >= handshake.len() {
+        debug!(
+            "[sni] extract_sni: truncated at session_id (pos={} len={})",
+            pos,
+            handshake.len()
+        );
         return None;
     }
     let session_id_len = handshake[pos] as usize;
@@ -68,6 +80,11 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
 
     // Skip Cipher Suites
     if pos + 1 >= handshake.len() {
+        debug!(
+            "[sni] extract_sni: truncated at cipher_suites (pos={} len={})",
+            pos,
+            handshake.len()
+        );
         return None;
     }
     let cipher_suites_len = u16::from_be_bytes([handshake[pos], handshake[pos + 1]]) as usize;
@@ -75,6 +92,11 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
 
     // Skip Compression Methods
     if pos >= handshake.len() {
+        debug!(
+            "[sni] extract_sni: truncated at compression_methods (pos={} len={})",
+            pos,
+            handshake.len()
+        );
         return None;
     }
     let compression_methods_len = handshake[pos] as usize;
@@ -82,15 +104,18 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
 
     // Read Extensions Length
     if pos + 1 >= handshake.len() {
+        debug!(
+            "[sni] extract_sni: truncated at extensions_len (pos={} len={})",
+            pos,
+            handshake.len()
+        );
         return None;
     }
     let extensions_len = u16::from_be_bytes([handshake[pos], handshake[pos + 1]]) as usize;
     pos += 2;
 
-    let extensions_end = pos + extensions_len;
-    if extensions_end > handshake.len() {
-        return None;
-    }
+    // Clamp to available bytes — TSO packets may be truncated
+    let extensions_end = (pos + extensions_len).min(handshake.len());
 
     // Parse Extensions
     while pos + 3 < extensions_end {
@@ -99,7 +124,16 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
         pos += 4;
 
         if ext_type == 0x0000 {
-            // SNI
+            // SNI — need full ext data; if truncated we can't read it
+            if pos + ext_len > handshake.len() {
+                debug!(
+                    "[sni] extract_sni: SNI ext truncated (pos={} ext_len={} buf={})",
+                    pos,
+                    ext_len,
+                    handshake.len()
+                );
+                break;
+            }
             let ext_data = &handshake[pos..pos + ext_len];
             if ext_data.len() >= 5 {
                 let name_len = u16::from_be_bytes([ext_data[3], ext_data[4]]) as usize;
@@ -113,6 +147,10 @@ fn extract_sni(bytes: &[u8]) -> Option<String> {
         pos += ext_len;
     }
 
+    debug!(
+        "[sni] extract_sni: no SNI extension found (extensions parsed, extensions_end={})",
+        extensions_end
+    );
     None
 }
 

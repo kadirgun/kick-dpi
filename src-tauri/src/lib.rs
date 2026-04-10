@@ -155,7 +155,9 @@ pub fn run() {
             #[cfg(windows)]
             {
                 let autostart_manager = app.autolaunch();
-                let _ = autostart_manager.enable();
+                if !cfg!(debug_assertions) {
+                    let _ = autostart_manager.enable();
+                }
 
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {

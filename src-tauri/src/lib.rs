@@ -2,6 +2,7 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_autostart::ManagerExt;
 
 pub(crate) mod connection_reset;
 pub(crate) mod dns;
@@ -96,6 +97,11 @@ fn get_default_app_settings() -> settings::AppSettings {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("Kick DPI")
+                .build(),
+        )
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -141,13 +147,16 @@ pub fn run() {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Debug)
+                        .level(log::LevelFilter::Info)
                         .build(),
                 )?;
             }
 
             #[cfg(windows)]
             {
+                let autostart_manager = app.autolaunch();
+                let _ = autostart_manager.enable();
+
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     flow_cache::start_flow_listener(handle.clone());

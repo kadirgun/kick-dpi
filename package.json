@@ -3,6 +3,7 @@
   "description": "A desktop application that prevents internet service providers from performing Deep Packet Inspection (DPI)",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@12.9.1",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

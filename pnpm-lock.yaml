@@ -199,6 +199,9 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.114.22
         version: 1.114.22(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tauri-apps/api':
+        specifier: ~2.10.1
+        version: 2.10.1
       '@tauri-apps/plugin-autostart':
         specifier: ~2.5.1
         version: 2.5.1

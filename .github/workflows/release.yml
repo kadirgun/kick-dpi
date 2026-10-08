@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build portable exe
+        run: pnpm tauri build --no-bundle
+
+      - name: Prepare release assets
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}"
+          $bin = "src-tauri/target/release"
+
+          # The exe is dynamically linked against WinDivert.dll, which in turn
+          # loads WinDivert64.sys from its own directory — both must ship beside it.
+          foreach ($f in @("kick-dpi.exe", "WinDivert.dll", "WinDivert64.sys")) {
+            if (-not (Test-Path "$bin/$f")) { throw "Missing expected build output: $bin/$f" }
+          }
+
+          Copy-Item "$bin/kick-dpi.exe" "kick-dpi.exe"
+          Compress-Archive `
+            -Path "kick-dpi.exe", "$bin/WinDivert.dll", "$bin/WinDivert64.sys" `
+            -DestinationPath "kick-dpi-$version-windows-x64.zip"
+
+      - name: Upload build artifact (manual runs)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: portable
+          path: |
+            kick-dpi.exe
+            kick-dpi-*-windows-x64.zip
+
+      - name: Attach assets to release
+        if: "startsWith(github.ref, 'refs/tags/')"
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            kick-dpi.exe
+            kick-dpi-*-windows-x64.zip
+          generate_release_notes: true
+          fail_on_unmatched_files: true

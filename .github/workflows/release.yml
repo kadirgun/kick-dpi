@@ -49,13 +49,15 @@ jobs:
           $version = "${{ github.ref_name }}"
           $bin = "src-tauri/target/release"
 
-          # The exe is dynamically linked against WinDivert.dll, which in turn
-          # loads WinDivert64.sys from its own directory — both must ship beside it.
-          foreach ($f in @("kick-dpi.exe", "WinDivert.dll", "WinDivert64.sys")) {
+          # The cargo package is named "app", so with --no-bundle the binary is
+          # app.exe. It is dynamically linked against WinDivert.dll, which in
+          # turn loads WinDivert64.sys from its own directory — all three must
+          # ship together; we rename the exe to the product name for release.
+          foreach ($f in @("app.exe", "WinDivert.dll", "WinDivert64.sys")) {
             if (-not (Test-Path "$bin/$f")) { throw "Missing expected build output: $bin/$f" }
           }
 
-          Copy-Item "$bin/kick-dpi.exe" "kick-dpi.exe"
+          Copy-Item "$bin/app.exe" "kick-dpi.exe"
           Compress-Archive `
             -Path "kick-dpi.exe", "$bin/WinDivert.dll", "$bin/WinDivert64.sys" `
             -DestinationPath "kick-dpi-$version-windows-x64.zip"

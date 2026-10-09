@@ -1,17 +1,26 @@
+mod disorder;
 mod fake_packet;
 mod fake_sni;
+mod fake_tls_first;
 mod ip_frag;
 mod overlap;
+mod quic_fake;
 mod shuffle;
 mod sni_split;
+mod split;
+mod tls_offsets;
 mod tcp_fragment;
 mod wrong_checksum;
 
+pub use disorder::DisorderStrategy;
 pub use fake_packet::FakePacketStrategy;
 pub use fake_sni::FakeSniStrategy;
+pub use fake_tls_first::FakeTlsFirstStrategy;
 pub use ip_frag::IpFragStrategy;
 pub use overlap::OverlapStrategy;
+pub use quic_fake::QuicFakeStrategy;
 pub use shuffle::ShuffleStrategy;
 pub use sni_split::SniSplitStrategy;
+pub use split::SplitStrategy;
 pub use tcp_fragment::TcpFragmentStrategy;
 pub use wrong_checksum::WrongChecksumStrategy;

@@ -147,29 +147,53 @@ async fn handle_dns_packet(
 
         info!("[dns] Rule matched for {}, applying DoH", query.name);
         state.inc_dns();
+
+        // Hardening: drop the original query so the DoH answer is the only one
+        // the OS can receive. Without this, a poisoned upstream answer racing
+        // ours can win and the blocked domain still resolves.
+        if !state.settings_snapshot().app.dns.drop_original_query {
+            reinject_original(handle, raw.clone(), addr.clone());
+        }
     }
 
-    // Always let the original query reach the real DNS server immediately.
-    // This guarantees DNS resolution works even if DoH is slow or fails.
-    reinject_original(handle, raw.clone(), addr.clone());
-
-    // Also try DoH — if it responds before the real DNS answer arrives, the
-    // OS receives a correct (unblocked) answer first.
-    let (doh_url, doh_timeout_ms) = {
+    let (doh_url, doh_timeout_ms, fallback_enabled) = {
         use crate::state::AppState;
         let settings = app_handle.state::<AppState>().settings_snapshot();
         let dns = &settings.app.dns;
         (
             doh::provider_url(&dns.provider, dns.custom_url.as_deref()),
             dns.timeout_ms,
+            dns.fallback_enabled,
         )
     };
     let doh_response = match doh::query_doh(client, &query.wire, &doh_url, doh_timeout_ms).await {
         Ok(r) => r,
         Err(e) => {
             error!("[dns] DoH request failed for {}: {e}", query.name);
-            return; // original already reinjected above
+            // Fallback: with the original query dropped above, reinjecting it
+            // is the only way DNS still works — but only if the user opted in,
+            // because the upstream answer may be poisoned.
+            if fallback_enabled {
+                reinject_original(handle, raw, addr);
+            }
+            return;
         }
+    };
+
+    // Filter record types the ISP can weaponize: AAAA (IPv6 bypasses the SNI
+    // strategies entirely) and HTTPS/SVCB (ECH configs trigger ClientHellos
+    // that Türk Telekom drops outright).
+    let (filter_aaaa, block_https_rr) = {
+        use crate::state::AppState;
+        let settings = app_handle.state::<AppState>().settings_snapshot();
+        (settings.app.dns.filter_aaaa, settings.app.dns.block_https_rr)
+    };
+    let doh_response = if let Some(filtered) =
+        parse::strip_answer_records(&doh_response, filter_aaaa, block_https_rr)
+    {
+        filtered
+    } else {
+        doh_response
     };
 
     let forged = match forge::forge_dns_response(&raw, &doh_response) {

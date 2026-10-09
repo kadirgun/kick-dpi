@@ -19,10 +19,14 @@ export type DnsSettings = {
   timeout_ms: number;
   fallback_enabled: boolean;
   fallback_servers: string[];
+  drop_original_query: boolean;
+  filter_aaaa: boolean;
+  block_https_rr: boolean;
 };
 
 export type SniSettings = {
   strategies: Record<string, boolean>;
+  quic_mode: "block" | "fake";
 };
 
 export type StrategySettings = {
@@ -30,6 +34,13 @@ export type StrategySettings = {
   fake_sni_decoy_ttl: number;
   overlap_decoy_ttl: number;
   ip_frag_first_payload_bytes: number;
+  split_positions: string[];
+  fake_tls_first_repeats: number;
+  fake_tls_first_decoy_ttl: number;
+  fake_tls_first_fooling: "badsum" | "badseq";
+  fake_tls_first_badseq_delta: number;
+  quic_fake_repeats: number;
+  quic_fake_decoy_ttl: number;
 };
 
 export type PerformanceSettings = {

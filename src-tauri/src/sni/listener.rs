@@ -4,8 +4,9 @@ use tauri::Manager;
 use windivert::{prelude::WinDivertFlags, ShutdownHandle, WinDivert};
 
 use super::strategies::{
-    FakePacketStrategy, FakeSniStrategy, IpFragStrategy, OverlapStrategy, ShuffleStrategy,
-    SniSplitStrategy, TcpFragmentStrategy, WrongChecksumStrategy,
+    DisorderStrategy, FakePacketStrategy, FakeSniStrategy, FakeTlsFirstStrategy, IpFragStrategy,
+    OverlapStrategy, QuicFakeStrategy, ShuffleStrategy, SniSplitStrategy, SplitStrategy,
+    TcpFragmentStrategy, WrongChecksumStrategy,
 };
 
 fn tls_payload(bytes: &[u8]) -> Option<&[u8]> {
@@ -166,6 +167,8 @@ pub(super) fn stop_listener() {
 
 /// Blocking recv/reinject loop.
 pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
+    use crate::state::AppState;
+
     let buf_size = app_handle
         .state::<crate::state::AppState>()
         .settings_snapshot()
@@ -196,8 +199,25 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                 let packet = packet.into_owned();
                 let bytes = packet.data.as_ref();
 
-                if should_drop_udp_443(bytes, &app_handle) {
-                    info!("[sni] dropping UDP 443 packet for matching rule");
+                let udp_action = udp_443_action(bytes, &app_handle);
+                if udp_action == Udp443Action::Drop {
+                    continue;
+                } else if udp_action == Udp443Action::Fake {
+                    // Send QuicFake decoys, then drop the original so the
+                    // client still falls back to TCP.
+                    let app = app_handle
+                        .state::<AppState>()
+                        .settings_snapshot()
+                        .app;
+                    let s = QuicFakeStrategy {
+                        decoy_ttl: app.strategy_params.quic_fake_decoy_ttl as u8,
+                        repeats: app.strategy_params.quic_fake_repeats as u8,
+                    };
+                    for mut decoy in s.process(packet) {
+                        if let Err(e) = handle.send(&mut decoy) {
+                            error!("[sni] failed to send QUIC decoy: {e}");
+                        }
+                    }
                     continue;
                 }
 
@@ -276,6 +296,31 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                             let s = FakePacketStrategy::default();
                             packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
                         }
+                        // Split/Disorder run before FakeTlsFirst so the fake
+                        // ClientHello goes out ahead of the first fragment.
+                        if strats.get("Split").copied().unwrap_or(false) {
+                            let s = SplitStrategy {
+                                positions: params.split_positions.clone(),
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        if strats.get("Disorder").copied().unwrap_or(false) {
+                            let s = DisorderStrategy {
+                                positions: params.split_positions.clone(),
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
+                        // FakeTlsFirst last (before Shuffle) so decoys always
+                        // precede the real ClientHello fragments.
+                        if strats.get("FakeTlsFirst").copied().unwrap_or(false) {
+                            let s = FakeTlsFirstStrategy {
+                                decoy_ttl: params.fake_tls_first_decoy_ttl as u8,
+                                repeats: params.fake_tls_first_repeats as u8,
+                                fooling: params.fake_tls_first_fooling.clone(),
+                                badseq_delta: params.fake_tls_first_badseq_delta,
+                            };
+                            packets = packets.into_iter().flat_map(|p| s.process(p)).collect();
+                        }
                         if strats.get("Shuffle").copied().unwrap_or(true) {
                             packets = ShuffleStrategy.process_batch(packets);
                         }
@@ -285,18 +330,25 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                     vec![packet]
                 };
 
-                fn should_drop_udp_443(bytes: &[u8], app_handle: &tauri::AppHandle) -> bool {
+                #[derive(PartialEq)]
+                enum Udp443Action {
+                    Pass,
+                    Drop,
+                    Fake,
+                }
+
+                fn udp_443_action(bytes: &[u8], app_handle: &tauri::AppHandle) -> Udp443Action {
                     use crate::{
                         packet_key::{ConnectionKey, TransportProtocol},
                         state::AppState,
                     };
 
                     let Some(key) = ConnectionKey::from_raw(bytes) else {
-                        return false;
+                        return Udp443Action::Pass;
                     };
 
                     if key.protocol != TransportProtocol::Udp {
-                        return false;
+                        return Udp443Action::Pass;
                     }
 
                     let state = app_handle.state::<AppState>();
@@ -304,9 +356,17 @@ pub(super) fn run_listener(filter: &str, app_handle: tauri::AppHandle) {
                         .pid_for_connection_or_local_port(&key)
                         .and_then(|pid| state.path_for_pid(pid));
 
-                    state
+                    if !state
                         .settings_snapshot()
                         .sni_enabled_for("", packet_path.as_deref(), None)
+                    {
+                        return Udp443Action::Pass;
+                    }
+
+                    match state.settings_snapshot().app.sni.quic_mode.as_str() {
+                        "fake" => Udp443Action::Fake,
+                        _ => Udp443Action::Drop,
+                    }
                 }
                 for mut mp in mutated_packets {
                     // Reinject the packet into the network stack

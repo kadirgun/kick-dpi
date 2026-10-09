@@ -25,12 +25,31 @@ pub struct DnsSettings {
     pub fallback_enabled: bool,
     #[serde(default)]
     pub fallback_servers: Vec<String>,
+    /// Drop the original UDP/53 query so the DoH answer becomes the only one
+    /// the OS can receive (prevents a poisoned upstream answer winning the race).
+    /// On DoH failure the original query is reinjected when fallback is enabled.
+    #[serde(default = "default_true")]
+    pub drop_original_query: bool,
+    /// Strip AAAA records from forged DoH answers so clients are forced onto
+    /// IPv4, where the SNI strategies are active (IPv6 traffic is never
+    /// intercepted). Stripped queries are treated as "no AAAA available".
+    #[serde(default = "default_true")]
+    pub filter_aaaa: bool,
+    /// Strip HTTPS/SVCB (types 65/64) records from forged DoH answers.
+    /// ECH configs in HTTPS records trigger ClientHellos that Türk Telekom
+    /// drops; without them browsers fall back to classic SNI we can break.
+    #[serde(default = "default_true")]
+    pub block_https_rr: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SniSettings {
     #[serde(default = "default_strategies")]
     pub strategies: HashMap<String, bool>,
+    /// "block": drop matched UDP/443 packets (forces TCP fallback).
+    /// "fake": send QuicFake decoys first, then drop the original.
+    #[serde(default = "default_quic_mode")]
+    pub quic_mode: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +62,24 @@ pub struct StrategySettings {
     pub overlap_decoy_ttl: u32,
     #[serde(default = "default_ip_frag_bytes")]
     pub ip_frag_first_payload_bytes: u32,
+    /// SplitStrategy position markers (zapret syntax), e.g. ["1", "sniext+1"].
+    #[serde(default = "default_split_positions")]
+    pub split_positions: Vec<String>,
+    /// FakeTlsFirst: decoys sent before the real ClientHello.
+    #[serde(default = "default_repeats")]
+    pub fake_tls_first_repeats: u32,
+    #[serde(default = "default_ttl")]
+    pub fake_tls_first_decoy_ttl: u32,
+    /// "badsum" | "badseq".
+    #[serde(default = "default_fooling")]
+    pub fake_tls_first_fooling: String,
+    #[serde(default = "default_badseq_delta")]
+    pub fake_tls_first_badseq_delta: i32,
+    /// QuicFake: decoy Initials per captured Initial.
+    #[serde(default = "default_repeats")]
+    pub quic_fake_repeats: u32,
+    #[serde(default = "default_ttl")]
+    pub quic_fake_decoy_ttl: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +115,30 @@ fn default_ip_frag_bytes() -> u32 {
     8
 }
 
+fn default_true() -> bool {
+    true
+}
+
+fn default_repeats() -> u32 {
+    6
+}
+
+fn default_quic_mode() -> String {
+    "block".to_string()
+}
+
+fn default_fooling() -> String {
+    "badsum".to_string()
+}
+
+fn default_badseq_delta() -> i32 {
+    -10000
+}
+
+fn default_split_positions() -> Vec<String> {
+    vec!["1".to_string(), "sniext+1".to_string()]
+}
+
 fn default_process_cache_refresh() -> u32 {
     5000 // 50 * 100ms
 }
@@ -104,14 +165,18 @@ fn default_sni_buffer_size() -> usize {
 
 fn default_strategies() -> HashMap<String, bool> {
     let mut map = HashMap::new();
-    map.insert("WrongChecksum".to_string(), true);
-    map.insert("FakeSni".to_string(), true);
-    map.insert("Overlap".to_string(), true);
-    map.insert("IpFrag".to_string(), true);
-    map.insert("SniSplit".to_string(), true);
-    map.insert("TcpFragment".to_string(), true);
-    map.insert("FakePacket".to_string(), true);
-    map.insert("Shuffle".to_string(), true);
+    map.insert("WrongChecksum".to_string(), false);
+    map.insert("FakeSni".to_string(), false);
+    map.insert("Overlap".to_string(), false);
+    map.insert("IpFrag".to_string(), false);
+    map.insert("SniSplit".to_string(), false);
+    map.insert("TcpFragment".to_string(), false);
+    map.insert("FakePacket".to_string(), false);
+    map.insert("Shuffle".to_string(), false);
+    map.insert("FakeTlsFirst".to_string(), true);
+    map.insert("Split".to_string(), true);
+    map.insert("Disorder".to_string(), false);
+    map.insert("QuicFake".to_string(), true);
     map
 }
 
@@ -134,6 +199,9 @@ impl Default for DnsSettings {
             timeout_ms: default_dns_timeout(),
             fallback_enabled: false,
             fallback_servers: vec![],
+            drop_original_query: default_true(),
+            filter_aaaa: default_true(),
+            block_https_rr: default_true(),
         }
     }
 }
@@ -142,6 +210,7 @@ impl Default for SniSettings {
     fn default() -> Self {
         Self {
             strategies: default_strategies(),
+            quic_mode: default_quic_mode(),
         }
     }
 }
@@ -153,6 +222,13 @@ impl Default for StrategySettings {
             fake_sni_decoy_ttl: default_ttl(),
             overlap_decoy_ttl: default_ttl(),
             ip_frag_first_payload_bytes: default_ip_frag_bytes(),
+            split_positions: default_split_positions(),
+            fake_tls_first_repeats: default_repeats(),
+            fake_tls_first_decoy_ttl: default_ttl(),
+            fake_tls_first_fooling: default_fooling(),
+            fake_tls_first_badseq_delta: default_badseq_delta(),
+            quic_fake_repeats: default_repeats(),
+            quic_fake_decoy_ttl: default_ttl(),
         }
     }
 }

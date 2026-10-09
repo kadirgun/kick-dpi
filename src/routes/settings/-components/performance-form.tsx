@@ -89,6 +89,7 @@ export function PerformanceForm() {
         connection_reset_buffer_kb: Math.max(1, values.connection_reset_buffer_kb),
       },
       strategy_params: {
+        ...settings.strategy_params,
         wrong_checksum_decoy_ttl: Math.max(1, values.wrong_checksum_decoy_ttl),
         fake_sni_decoy_ttl: Math.max(1, values.fake_sni_decoy_ttl),
         overlap_decoy_ttl: Math.max(1, values.overlap_decoy_ttl),

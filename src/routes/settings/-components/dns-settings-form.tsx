@@ -28,6 +28,9 @@ export function DnsSettingsForm() {
       timeout_ms: 2000,
       fallback_enabled: false,
       fallback_servers: "",
+      drop_original_query: true,
+      filter_aaaa: true,
+      block_https_rr: true,
     },
   });
 
@@ -39,6 +42,9 @@ export function DnsSettingsForm() {
         timeout_ms: settings.dns.timeout_ms,
         fallback_enabled: settings.dns.fallback_enabled,
         fallback_servers: settings.dns.fallback_servers.join(", "),
+        drop_original_query: settings.dns.drop_original_query,
+        filter_aaaa: settings.dns.filter_aaaa,
+        block_https_rr: settings.dns.block_https_rr,
       };
       form.setValues(values);
       form.resetDirty(values);
@@ -71,6 +77,9 @@ export function DnsSettingsForm() {
       timeout_ms: defaults.dns.timeout_ms,
       fallback_enabled: defaults.dns.fallback_enabled,
       fallback_servers: defaults.dns.fallback_servers.join(", "),
+      drop_original_query: defaults.dns.drop_original_query,
+      filter_aaaa: defaults.dns.filter_aaaa,
+      block_https_rr: defaults.dns.block_https_rr,
     });
   };
 
@@ -88,6 +97,9 @@ export function DnsSettingsForm() {
         timeout_ms: Math.max(500, Math.min(values.timeout_ms, 10000)),
         fallback_enabled: values.fallback_enabled,
         fallback_servers: servers,
+        drop_original_query: values.drop_original_query,
+        filter_aaaa: values.filter_aaaa,
+        block_https_rr: values.block_https_rr,
       },
     });
   });
@@ -160,6 +172,24 @@ export function DnsSettingsForm() {
             </Text>
           </div>
         )}
+
+        <Checkbox
+          label="Drop original query"
+          description="Deliver only the DoH answer to the OS so a poisoned ISP answer can never win the race. DoH failures fall back only when Fallback DNS is enabled."
+          {...form.getInputProps("drop_original_query", { type: "checkbox" })}
+        />
+
+        <Checkbox
+          label="Strip AAAA records"
+          description="Force clients onto IPv4 — IPv6 traffic bypasses the SNI strategies entirely"
+          {...form.getInputProps("filter_aaaa", { type: "checkbox" })}
+        />
+
+        <Checkbox
+          label="Strip HTTPS/SVCB records"
+          description="ECH configs in HTTPS records trigger ClientHellos that Türk Telekom drops; without them browsers use classic SNI"
+          {...form.getInputProps("block_https_rr", { type: "checkbox" })}
+        />
       </Stack>
 
       <Affix position={{ bottom: 20, right: 20 }} withinPortal={false}>
